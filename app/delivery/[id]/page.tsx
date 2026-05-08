@@ -6,8 +6,8 @@ import { Check, Minus, X, AlertTriangle } from "lucide-react";
 import { useDeliveryStore } from "@/lib/stores/delivery-store";
 import { Button } from "@/components/ui/Button";
 import { BackButton } from "@/components/shared/AppShell";
-import { formatILS, cn } from "@/lib/utils";
-import type { DeliveryItem, ItemStatus } from "@/lib/types";
+import { formatILS, formatDate, cn } from "@/lib/utils";
+import type { Delivery, DeliveryItem, ItemStatus } from "@/lib/types";
 
 type Filter = "all" | "pending" | "issues" | "ok";
 
@@ -64,6 +64,9 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
         </div>
       </header>
 
+      {/* FOREIGN ORDER INFO */}
+      {delivery.currency !== "ILS" && <ForeignOrderBanner delivery={delivery} />}
+
       {/* FILTERS */}
       <div className="flex gap-1.5 px-4 py-3 overflow-x-auto no-scrollbar">
         <Pill active={filter === "all"} onClick={() => setFilter("all")} label="הכל" count={progress.total} />
@@ -117,6 +120,52 @@ function Stat({ dot, label, count }: { dot: "green" | "orange" | "coral" | "gray
       <span className={`w-2 h-2 rounded-full ${colors[dot]}`} />
       {count} {label}
     </span>
+  );
+}
+
+function ForeignOrderBanner({ delivery }: { delivery: Delivery }) {
+  const symbol = delivery.currency === "USD" ? "$" : delivery.currency === "EUR" ? "€" : delivery.currency === "GBP" ? "£" : "";
+  return (
+    <div className="mx-4 mt-3 bg-gradient-to-bl from-orange/10 to-orange/[0.03] border border-orange/30 rounded-[14px] p-3.5">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-base">🌎</span>
+        <span className="text-[12px] font-bold text-navy">הזמנה מחו״ל</span>
+        <span className="text-[10px] font-display bg-orange/20 text-[#c2410c] px-2 py-0.5 rounded-full font-bold">
+          {delivery.currency}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2 text-[14px]">
+        <span className="font-display text-navy font-bold">
+          {symbol}{delivery.originalTotal.toFixed(2)}
+        </span>
+        <span className="text-text-muted">≈</span>
+        <span className="font-display text-text-sub font-semibold">
+          {formatILS(delivery.ilsTotal)}
+        </span>
+      </div>
+      {delivery.exchangeRate && (
+        <div className="text-[11px] text-text-sub mt-1.5 flex items-center gap-3 flex-wrap">
+          <span>שער {delivery.exchangeRate} ₪/{delivery.currency} ({formatDate(delivery.orderDate)})</span>
+          {delivery.expectedEta && <span>📅 ETA {formatDate(delivery.expectedEta)}</span>}
+        </div>
+      )}
+      {(delivery.vatAmount > 0 || (delivery.customsAmount ?? 0) > 0) && (
+        <div className="flex gap-2 mt-2.5">
+          {delivery.vatAmount > 0 && (
+            <div className="flex-1 bg-bg rounded-md py-1.5 text-center">
+              <div className="text-[10px] text-text-sub font-semibold">מע״מ ששולם</div>
+              <div className="font-display text-[12px] font-bold text-navy">{formatILS(delivery.vatAmount)}</div>
+            </div>
+          )}
+          <div className="flex-1 bg-bg rounded-md py-1.5 text-center">
+            <div className="text-[10px] text-text-sub font-semibold">מכס</div>
+            <div className={cn("font-display text-[12px] font-bold", (delivery.customsAmount ?? 0) === 0 ? "text-green" : "text-navy")}>
+              {(delivery.customsAmount ?? 0) === 0 ? "פטור" : formatILS(delivery.customsAmount ?? 0)}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

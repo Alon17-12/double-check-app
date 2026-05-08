@@ -64,7 +64,12 @@ export const mockHistory: Delivery[] = [
     vatAmount: 53.85,
     customsAmount: 0,
     status: "tracking",
-    items: [],
+    items: [
+      { id: "az1", position: 1, name: "Sony WH-1000XM5 Wireless Headphones — Black", unit: "unit", orderedQty: 1, unitPrice: 299, totalPrice: 299, receivedQty: null, status: "pending" },
+      { id: "az2", position: 2, name: "Anker USB-C Hub 7-in-1", unit: "unit", orderedQty: 1, unitPrice: 49.99, totalPrice: 49.99, receivedQty: null, status: "pending" },
+      { id: "az3", position: 3, name: "iPhone 16 Pro Silicone Case — Navy Blue", unit: "unit", orderedQty: 2, unitPrice: 19.5, totalPrice: 39, receivedQty: null, status: "pending" },
+      { id: "az4", position: 4, name: "Cable Management Box", unit: "unit", orderedQty: 1, unitPrice: 15.49, totalPrice: 15.49, receivedQty: null, status: "pending" },
+    ],
   },
   {
     id: "delivery-003",
