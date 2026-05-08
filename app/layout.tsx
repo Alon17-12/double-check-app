@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo, Fredoka } from "next/font/google";
+import { PwaProvider } from "@/components/shared/PwaProvider";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -19,6 +20,11 @@ export const metadata: Metadata = {
   description:
     "אפליקציה לוידוא משלוחים אונליין — צלם קבלה, סמן מה הגיע, שלח דוח פערים בלחיצת כפתור.",
   applicationName: "Double Check",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-icon.svg", sizes: "180x180", type: "image/svg+xml" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -44,7 +50,9 @@ export default function RootLayout({
       dir="rtl"
       className={`${heebo.variable} ${fredoka.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-bg text-text-main">{children}</body>
+      <body className="min-h-full bg-bg text-text-main">
+        <PwaProvider>{children}</PwaProvider>
+      </body>
     </html>
   );
 }

@@ -90,3 +90,8 @@ a:focus-visible {
   0%, 100% { box-shadow: 0 0 0 4px rgba(56, 196, 242, 0.2); }
   50% { box-shadow: 0 0 0 8px rgba(56, 196, 242, 0.1); }
 }
+
+@keyframes slideUp {
+  from { transform: translate(-50%, 30px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
