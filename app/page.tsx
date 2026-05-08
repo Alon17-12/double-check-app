@@ -1,21 +1,27 @@
-"use client";
-
 import Link from "next/link";
 import { Bell, Camera, ChevronLeft } from "lucide-react";
 import { AppShell } from "@/components/shared/AppShell";
 import { Card, StatusBadge } from "@/components/ui/Card";
-import { useDeliveryStore } from "@/lib/stores/delivery-store";
-import { mockStats, storeLogos } from "@/lib/mocks/data";
+import { listDeliveries } from "@/lib/data/deliveries";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { storeLogos } from "@/lib/mocks/data";
 import { formatRelativeDate, formatILS } from "@/lib/utils";
 import type { Delivery } from "@/lib/types";
 
-export default function HomePage() {
-  const deliveries = useDeliveryStore((s) => s.deliveries);
+export default async function HomePage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const deliveries = await listDeliveries();
   const recent = deliveries.slice(0, 4);
+
+  const issues = deliveries.filter((d) => hasIssues(d)).length;
+  const completed = deliveries.filter((d) => d.status === "completed" || d.status === "refunded").length;
+  const refunds = deliveries.reduce((s, d) => s + (d.refundAmount ?? 0), 0);
+
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "";
 
   return (
     <AppShell>
-      {/* HERO HEADER */}
       <header className="relative bg-gradient-to-br from-navy to-navy-light text-white px-5 pt-5 pb-20 overflow-hidden">
         <div className="absolute -top-20 -left-16 w-[200px] h-[200px] rounded-full bg-white/[0.05]" />
         <div className="absolute -bottom-12 -right-10 w-[140px] h-[140px] rounded-full bg-white/[0.05]" />
@@ -32,15 +38,16 @@ export default function HomePage() {
           </button>
         </div>
         <div className="relative">
-          <h1 className="text-[22px] font-bold mb-1">שלום אלון 👋</h1>
+          <h1 className="text-[22px] font-bold mb-1">שלום {firstName} 👋</h1>
           <p className="text-[13px] opacity-85">
-            יש לך משלוח אחד שמחכה לבדיקה
+            {deliveries.length === 0
+              ? "ברוך הבא! צלם את הקבלה הראשונה שלך"
+              : `יש לך ${deliveries.length} משלוח${deliveries.length === 1 ? "" : "ים"} בחשבון`}
           </p>
         </div>
       </header>
 
       <div className="relative z-10 -mt-14 px-4">
-        {/* CTA CARD */}
         <Card className="rounded-[22px] p-5 text-center shadow-[0_12px_32px_rgba(15,23,42,0.12)] mb-6">
           <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-cyan to-cyan-dark mx-auto mb-3 flex items-center justify-center shadow-[0_8px_20px_rgba(56,196,242,0.35)]">
             <Camera size={32} className="text-white" strokeWidth={2} />
@@ -74,7 +81,6 @@ export default function HomePage() {
           </div>
         </Card>
 
-        {/* INBOX MAGIC BANNER */}
         <Link
           href="/inbox"
           className="flex items-center gap-3 p-3 mb-5 bg-gradient-to-bl from-cyan/10 to-navy/[0.05] border border-cyan/20 rounded-[16px] hover:border-cyan/40 transition-colors"
@@ -83,37 +89,52 @@ export default function HomePage() {
           <div className="flex-1 text-[12px] leading-[1.5]">
             <strong className="text-navy">Inbox Magic מוכן!</strong>
             <br />
-            <span className="text-text-sub">
-              העבר אישור מאמזון/AliExpress לכתובת שלך — נקלט אוטומטית
-            </span>
+            <span className="text-text-sub">העבר אישור מאמזון/AliExpress לכתובת שלך — נקלט אוטומטית</span>
           </div>
           <ChevronLeft size={20} className="text-cyan flex-shrink-0" />
         </Link>
 
-        {/* STATS */}
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          <StatCard value={String(mockStats.completed)} label="משלוחים תקינים" tone="green" />
-          <StatCard value={String(mockStats.withIssues)} label="עם פערים" tone="coral" />
-          <StatCard value={`₪${mockStats.totalRefunds}`} label="סך החזרים" tone="navy" />
-        </div>
+        {deliveries.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mb-5">
+            <StatCard value={String(completed)} label="משלוחים תקינים" tone="green" />
+            <StatCard value={String(issues)} label="עם פערים" tone="coral" />
+            <StatCard value={`₪${Math.round(refunds)}`} label="סך החזרים" tone="navy" />
+          </div>
+        )}
 
-        {/* RECENT DELIVERIES */}
-        <div className="flex justify-between items-center pb-3 px-1">
-          <div className="text-[15px] font-bold text-navy">משלוחים אחרונים</div>
-          <Link
-            href="/history"
-            className="text-[12px] text-cyan font-semibold hover:underline"
-          >
-            הצג הכל ←
-          </Link>
-        </div>
-        <div className="flex flex-col gap-2.5">
-          {recent.map((d) => (
-            <DeliveryRow key={d.id} delivery={d} />
-          ))}
-        </div>
+        {deliveries.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <>
+            <div className="flex justify-between items-center pb-3 px-1">
+              <div className="text-[15px] font-bold text-navy">משלוחים אחרונים</div>
+              <Link href="/history" className="text-[12px] text-cyan font-semibold hover:underline">
+                הצג הכל ←
+              </Link>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {recent.map((d) => (
+                <DeliveryRow key={d.id} delivery={d} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </AppShell>
+  );
+}
+
+function EmptyState() {
+  return (
+    <Card className="rounded-[20px] p-8 text-center mt-2 border-dashed border-2 border-border bg-bg/50">
+      <div className="text-5xl mb-3">📦</div>
+      <h3 className="text-[15px] font-bold text-navy mb-1.5">אין משלוחים עדיין</h3>
+      <p className="text-[12px] text-text-sub leading-relaxed">
+        צלם קבלה ראשונה או חבר את ה-Inbox Magic
+        <br />
+        כדי לראות כאן את כל המשלוחים שלך.
+      </p>
+    </Card>
   );
 }
 
@@ -126,11 +147,7 @@ function StatCard({
   label: string;
   tone: "green" | "coral" | "navy";
 }) {
-  const tones = {
-    green: "text-green",
-    coral: "text-coral",
-    navy: "text-navy",
-  };
+  const tones = { green: "text-green", coral: "text-coral", navy: "text-navy" };
   return (
     <Card className="rounded-[16px] p-3 text-center">
       <div className={`font-display text-[22px] font-bold mb-0.5 ${tones[tone]}`}>{value}</div>
@@ -151,14 +168,12 @@ function DeliveryRow({ delivery }: { delivery: Delivery }) {
       href={`/delivery/${delivery.id}`}
       className="bg-surface border border-border rounded-[16px] p-3.5 flex items-center gap-3 hover:-translate-y-px hover:shadow-md transition cursor-pointer"
     >
-      <div
-        className={`w-11 h-11 rounded-[12px] bg-gradient-to-br ${logo.gradient} flex items-center justify-center text-white font-display font-bold text-sm flex-shrink-0`}
-      >
+      <div className={`w-11 h-11 rounded-[12px] bg-gradient-to-br ${logo.gradient} flex items-center justify-center text-white font-display font-bold text-sm flex-shrink-0`}>
         {logo.initials}
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[14px] font-semibold mb-0.5 truncate">
-          {delivery.storeName} — הזמנה #{delivery.orderNumber.slice(-6)}
+          {delivery.storeName} {delivery.orderNumber ? `— הזמנה #${delivery.orderNumber.slice(-6)}` : ""}
         </div>
         <div className="text-[11px] text-text-sub">
           {formatRelativeDate(delivery.orderDate)} • {delivery.items.length} פריטים •{" "}
@@ -177,11 +192,13 @@ function getDisplayStatus(d: Delivery): {
   if (d.status === "refunded") return { label: "החזר התקבל", tone: "refunded" };
   if (d.status === "completed") return { label: "תקין", tone: "completed" };
   if (d.status === "tracking") {
-    const issues = d.items.filter(
-      (i) => i.status === "missing" || i.status === "partial" || i.status === "damaged",
-    ).length;
+    const issues = d.items.filter((i) => i.status === "missing" || i.status === "partial" || i.status === "damaged").length;
     if (issues > 0) return { label: `${issues} פערים`, tone: "issue" };
     return { label: "בבדיקה", tone: "pending" };
   }
   return { label: "בבדיקה", tone: "pending" };
+}
+
+function hasIssues(d: Delivery): boolean {
+  return d.items.some((i) => i.status === "missing" || i.status === "partial" || i.status === "damaged");
 }

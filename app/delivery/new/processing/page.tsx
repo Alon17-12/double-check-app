@@ -3,19 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Sparkles, X } from "lucide-react";
-import { useDeliveryStore } from "@/lib/stores/delivery-store";
 
 const STAGES = [
   { id: "upload", label: "תמונה הועלתה ועובדה", duration: 1200 },
-  { id: "store", label: "חנות זוהתה: רמי לוי", duration: 1200 },
-  { id: "extract", label: "מחלץ פריטים (15/23)", duration: 2200 },
+  { id: "store", label: "מזהה חנות", duration: 1200 },
+  { id: "extract", label: "מחלץ פריטים", duration: 2200 },
   { id: "math", label: "בודק חישוב מתמטי", duration: 1000 },
   { id: "finish", label: "מסיים", duration: 600 },
 ];
 
 export default function OcrProcessingPage() {
   const router = useRouter();
-  const currentId = useDeliveryStore((s) => s.currentId);
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
@@ -27,15 +25,15 @@ export default function OcrProcessingPage() {
         await new Promise((r) => setTimeout(r, STAGES[i].duration));
       }
       if (!cancelled) {
-        // Demo: navigate to review with the mock current delivery
-        router.push(`/delivery/${currentId}/review`);
+        // OCR not yet wired to Gemini — go back to home for now.
+        router.push("/?ocr=demo");
       }
     };
     run();
     return () => {
       cancelled = true;
     };
-  }, [router, currentId]);
+  }, [router]);
 
   const progressPct = Math.round(((activeIdx + 0.5) / STAGES.length) * 100);
 
