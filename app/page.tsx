@@ -58,9 +58,20 @@ export default function HomePage() {
             צלם קבלה
           </Link>
 
-          <button className="mt-2 w-full bg-transparent text-navy border-[1.5px] border-dashed border-[rgba(30,58,138,0.25)] py-3 rounded-[14px] text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[rgba(30,58,138,0.04)] transition-colors">
-            📨 קליטה דרך מייל
-          </button>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <Link
+              href="/delivery/new?mode=pdf"
+              className="bg-transparent text-navy border-[1.5px] border-dashed border-[rgba(30,58,138,0.25)] py-3 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 hover:bg-[rgba(30,58,138,0.04)] transition-colors"
+            >
+              📄 העלה PDF
+            </Link>
+            <Link
+              href="/inbox"
+              className="bg-transparent text-navy border-[1.5px] border-dashed border-[rgba(30,58,138,0.25)] py-3 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 hover:bg-[rgba(30,58,138,0.04)] transition-colors"
+            >
+              📨 דרך מייל
+            </Link>
+          </div>
         </Card>
 
         {/* INBOX MAGIC BANNER */}

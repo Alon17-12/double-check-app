@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import {
   ChevronLeft,
   Zap,
@@ -17,14 +17,28 @@ import {
 
 type Mode = "receipt" | "pdf" | "manual";
 
+function isMode(value: string | null): value is Mode {
+  return value === "receipt" || value === "pdf" || value === "manual";
+}
+
 export default function CapturePage() {
+  return (
+    <Suspense fallback={null}>
+      <CaptureInner />
+    </Suspense>
+  );
+}
+
+function CaptureInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode = searchParams.get("mode");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [mode, setMode] = useState<Mode>("receipt");
+  const [mode, setMode] = useState<Mode>(isMode(initialMode) ? initialMode : "receipt");
 
   const handleCapture = () => router.push("/delivery/new/processing");
 
