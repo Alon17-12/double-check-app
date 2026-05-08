@@ -1,9 +1,9 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, X, AlertTriangle } from "lucide-react";
-import { useDeliveryStore } from "@/lib/stores/delivery-store";
+import { useDeliveryStore, computeProgress } from "@/lib/stores/delivery-store";
 import { Button } from "@/components/ui/Button";
 import { BackButton } from "@/components/shared/AppShell";
 import { formatILS, formatDate, cn } from "@/lib/utils";
@@ -14,9 +14,9 @@ type Filter = "all" | "pending" | "issues" | "ok";
 export default function TrackingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const delivery = useDeliveryStore((s) => s.getById(id));
+  const delivery = useDeliveryStore((s) => s.deliveries.find((d) => d.id === id) ?? null);
   const setItemStatus = useDeliveryStore((s) => s.setItemStatus);
-  const progress = useDeliveryStore((s) => s.computeProgress(id));
+  const progress = useMemo(() => computeProgress(delivery), [delivery]);
   const [filter, setFilter] = useState<Filter>("all");
 
   if (!delivery) return <div className="p-8 text-center">משלוח לא נמצא</div>;

@@ -1,9 +1,9 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, FileSpreadsheet, Save, Mail } from "lucide-react";
-import { useDeliveryStore } from "@/lib/stores/delivery-store";
+import { useDeliveryStore, computeProgress, computeRefund } from "@/lib/stores/delivery-store";
 import { Button } from "@/components/ui/Button";
 import { BackButton } from "@/components/shared/AppShell";
 import { formatILS } from "@/lib/utils";
@@ -12,9 +12,9 @@ import type { DeliveryItem } from "@/lib/types";
 export default function SummaryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const delivery = useDeliveryStore((s) => s.getById(id));
-  const refund = useDeliveryStore((s) => s.computeRefund(id));
-  const progress = useDeliveryStore((s) => s.computeProgress(id));
+  const delivery = useDeliveryStore((s) => s.deliveries.find((d) => d.id === id) ?? null);
+  const refund = useMemo(() => computeRefund(delivery), [delivery]);
+  const progress = useMemo(() => computeProgress(delivery), [delivery]);
 
   if (!delivery) return <div className="p-8 text-center">משלוח לא נמצא</div>;
 

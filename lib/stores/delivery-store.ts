@@ -5,6 +5,62 @@ import { persist } from "zustand/middleware";
 import type { Delivery, DeliveryItem, ItemStatus } from "@/lib/types";
 import { mockCurrentDelivery, mockHistory } from "@/lib/mocks/data";
 
+// ─────────────────────────────────────────────
+// Pure helpers — call from useMemo in components
+// ─────────────────────────────────────────────
+
+export interface ProgressSummary {
+  total: number;
+  ok: number;
+  partial: number;
+  missing: number;
+  damaged: number;
+  pending: number;
+  percent: number;
+}
+
+const EMPTY_PROGRESS: ProgressSummary = {
+  total: 0,
+  ok: 0,
+  partial: 0,
+  missing: 0,
+  damaged: 0,
+  pending: 0,
+  percent: 0,
+};
+
+export function computeProgress(delivery: Delivery | null): ProgressSummary {
+  if (!delivery) return EMPTY_PROGRESS;
+  const counts = { ok: 0, partial: 0, missing: 0, damaged: 0, pending: 0 };
+  for (const it of delivery.items) {
+    if (it.status === "ok") counts.ok++;
+    else if (it.status === "partial") counts.partial++;
+    else if (it.status === "missing") counts.missing++;
+    else if (it.status === "damaged") counts.damaged++;
+    else counts.pending++;
+  }
+  const total = delivery.items.length;
+  const checked = total - counts.pending;
+  return {
+    total,
+    ...counts,
+    percent: total > 0 ? Math.round((checked / total) * 100) : 0,
+  };
+}
+
+export function computeRefund(delivery: Delivery | null): number {
+  if (!delivery) return 0;
+  let refund = 0;
+  for (const it of delivery.items) {
+    if (it.status === "missing" || it.status === "damaged") {
+      refund += it.totalPrice;
+    } else if (it.status === "partial" && it.receivedQty != null) {
+      refund += it.unitPrice * (it.orderedQty - it.receivedQty);
+    }
+  }
+  return Math.round(refund * 100) / 100;
+}
+
 interface DeliveryStore {
   deliveries: Delivery[];
   currentId: string | null;
@@ -25,18 +81,6 @@ interface DeliveryStore {
 
   addItem: (deliveryId: string, item: Omit<DeliveryItem, "id" | "position">) => void;
   removeItem: (deliveryId: string, itemId: string) => void;
-
-  // Computed helpers
-  computeRefund: (deliveryId: string) => number;
-  computeProgress: (deliveryId: string) => {
-    total: number;
-    ok: number;
-    partial: number;
-    missing: number;
-    damaged: number;
-    pending: number;
-    percent: number;
-  };
 
   resetMockData: () => void;
 }
@@ -125,43 +169,6 @@ export const useDeliveryStore = create<DeliveryStore>()(
               : d,
           ),
         })),
-
-      computeRefund: (deliveryId) => {
-        const d = get().getById(deliveryId);
-        if (!d) return 0;
-        let refund = 0;
-        for (const it of d.items) {
-          if (it.status === "missing") refund += it.totalPrice;
-          else if (it.status === "damaged") refund += it.totalPrice;
-          else if (it.status === "partial" && it.receivedQty != null) {
-            const missingQty = it.orderedQty - it.receivedQty;
-            refund += it.unitPrice * missingQty;
-          }
-        }
-        return Math.round(refund * 100) / 100;
-      },
-
-      computeProgress: (deliveryId) => {
-        const d = get().getById(deliveryId);
-        if (!d) {
-          return { total: 0, ok: 0, partial: 0, missing: 0, damaged: 0, pending: 0, percent: 0 };
-        }
-        const counts = { ok: 0, partial: 0, missing: 0, damaged: 0, pending: 0 };
-        for (const it of d.items) {
-          if (it.status === "ok") counts.ok++;
-          else if (it.status === "partial") counts.partial++;
-          else if (it.status === "missing") counts.missing++;
-          else if (it.status === "damaged") counts.damaged++;
-          else counts.pending++;
-        }
-        const total = d.items.length;
-        const checked = total - counts.pending;
-        return {
-          total,
-          ...counts,
-          percent: total > 0 ? Math.round((checked / total) * 100) : 0,
-        };
-      },
 
       resetMockData: () =>
         set({
