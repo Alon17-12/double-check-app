@@ -1,7 +1,8 @@
 // Double Check — Service Worker
 // Network-first strategy with offline fallback for navigation.
 
-const CACHE_VERSION = "v1";
+// Bump this whenever app shell needs to be force-refreshed on installed PWAs.
+const CACHE_VERSION = "v3-camera";
 const RUNTIME_CACHE = `dc-runtime-${CACHE_VERSION}`;
 const PRECACHE = `dc-precache-${CACHE_VERSION}`;
 
@@ -33,16 +34,17 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
-  // Don't intercept Next.js internals or API calls.
+  // Don't intercept Next.js internals, build assets, or API calls — let the
+  // browser handle them so deploys take effect immediately.
   if (
-    request.url.includes("/_next/data/") ||
+    request.url.includes("/_next/") ||
     request.url.includes("/api/") ||
     request.url.includes("hot-update")
   ) {
     return;
   }
 
-  // Navigation requests: network-first with offline fallback
+  // Navigation: always go to network, fall back to cache only if offline.
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -56,19 +58,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Other GETs: stale-while-revalidate
+  // Static GETs (images, fonts): network-first too — keeps deploys fresh.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const fetchPromise = fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    }),
+    fetch(request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request)),
   );
 });
