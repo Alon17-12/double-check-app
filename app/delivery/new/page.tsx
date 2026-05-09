@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Pencil,
 } from "lucide-react";
+import { CameraStream, type CameraStreamHandle } from "@/components/capture/CameraStream";
 
 type Mode = "receipt" | "pdf" | "manual";
 
@@ -35,6 +36,7 @@ function CaptureInner() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const cameraStreamRef = useRef<CameraStreamHandle>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,7 +49,6 @@ function CaptureInner() {
     if (!file) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
-    // Reset input so the same file can be selected again later.
     e.target.value = "";
   };
 
@@ -56,7 +57,21 @@ function CaptureInner() {
     setPreviewUrl(null);
   };
 
-  const triggerCamera = () => cameraInputRef.current?.click();
+  /**
+   * Shutter:
+   * 1. Try to capture the current frame from the live camera stream
+   * 2. If that fails (no permission / no camera) — fall back to the native picker
+   */
+  const onShutter = async () => {
+    const file = await cameraStreamRef.current?.capture();
+    if (file) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(file));
+      return;
+    }
+    cameraInputRef.current?.click();
+  };
+
   const triggerGallery = () => galleryInputRef.current?.click();
 
   const handlePdf = (file: File | null | undefined) => {
@@ -121,7 +136,7 @@ function CaptureInner() {
 
       {/* MODE-SPECIFIC CONTENT */}
       {mode === "receipt" && (
-        <CameraMode previewUrl={previewUrl} />
+        <CameraMode previewUrl={previewUrl} streamRef={cameraStreamRef} />
       )}
       {mode === "pdf" && (
         <PdfMode
@@ -213,7 +228,7 @@ function CaptureInner() {
                 <span className="text-[8px] font-semibold opacity-80">גלריה</span>
               </button>
               <button
-                onClick={triggerCamera}
+                onClick={onShutter}
                 aria-label="צלם תמונה"
                 className="w-[78px] h-[78px] rounded-full bg-white border-[5px] border-white/30 active:scale-95 transition shadow-[0_0_0_3px_rgba(56,196,242,0.5)]"
               />
@@ -254,26 +269,34 @@ function CaptureInner() {
 }
 
 /* ─────────────────────────────────────────── */
-/* CAMERA MODE                                  */
+/* CAMERA MODE — live video stream + capture    */
 /* ─────────────────────────────────────────── */
-function CameraMode({ previewUrl }: { previewUrl: string | null }) {
+function CameraMode({
+  previewUrl,
+  streamRef,
+}: {
+  previewUrl: string | null;
+  streamRef: React.RefObject<CameraStreamHandle | null>;
+}) {
   const captured = !!previewUrl;
   return (
     <>
       {!captured && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 bg-slate-900/70 backdrop-blur-md px-3.5 py-1.5 rounded-full text-[11px] font-semibold text-cyan border border-cyan/30">
-          📄 צלם קבלה או בחר מהגלריה
+          📄 כוון את המצלמה אל הקבלה
         </div>
       )}
-      <div className="relative w-full h-screen md:h-[calc(100vh-48px)] bg-[#1a1a1a] flex items-center justify-center overflow-hidden">
+
+      <div className="relative w-full h-screen md:h-[calc(100vh-48px)] bg-[#1a1a1a] overflow-hidden">
         {previewUrl ? (
           <Image src={previewUrl} alt="תצוגה מקדימה" fill style={{ objectFit: "contain" }} unoptimized />
         ) : (
-          <ReceiptMockup />
+          <CameraStream ref={streamRef} paused={captured} />
         )}
 
         {!captured && (
           <>
+            {/* Scan frame overlay on top of live video */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-[360px] aspect-[3/4] pointer-events-none">
               <div className="absolute top-0 left-0 w-8 h-8 border-[3px] border-cyan border-r-0 border-b-0 rounded-tl-lg" />
               <div className="absolute top-0 right-0 w-8 h-8 border-[3px] border-cyan border-l-0 border-b-0 rounded-tr-lg" />
@@ -286,11 +309,8 @@ function CameraMode({ previewUrl }: { previewUrl: string | null }) {
             </div>
 
             <div className="absolute bottom-[200px] left-1/2 -translate-x-1/2 bg-slate-900/85 backdrop-blur-lg px-4 py-2.5 rounded-full text-xs flex items-center gap-2 border border-cyan/30 whitespace-nowrap z-[5] text-white">
-              <span
-                className="w-2 h-2 rounded-full bg-cyan"
-                style={{ animation: "pulse-dot 1.5s ease-in-out infinite" }}
-              />
-              <span>לחץ על הכפתור הלבן כדי לצלם או על &quot;גלריה&quot;</span>
+              <span className="w-2 h-2 rounded-full bg-cyan" style={{ animation: "pulse-dot 1.5s ease-in-out infinite" }} />
+              <span>החזק יציב — מוכן לצילום</span>
             </div>
           </>
         )}
