@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   Zap,
   Image as ImageIcon,
-  Repeat,
   FileText,
   Upload,
   X,
@@ -33,20 +32,32 @@ function CaptureInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("mode");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [mode, setMode] = useState<Mode>(isMode(initialMode) ? initialMode : "receipt");
 
-  const handleCapture = () => router.push("/delivery/new/processing");
+  const continueToProcessing = () => router.push("/delivery/new/processing");
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
+    // Reset input so the same file can be selected again later.
+    e.target.value = "";
   };
+
+  const retake = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+  };
+
+  const triggerCamera = () => cameraInputRef.current?.click();
+  const triggerGallery = () => galleryInputRef.current?.click();
 
   const handlePdf = (file: File | null | undefined) => {
     if (!file) return;
@@ -88,7 +99,13 @@ function CaptureInner() {
           <ChevronLeft size={20} strokeWidth={2.5} />
         </button>
         <div className="text-base font-bold tracking-tight">
-          {mode === "receipt" ? "צלם קבלה" : mode === "pdf" ? "העלה PDF" : "הוספה ידנית"}
+          {mode === "receipt"
+            ? previewUrl
+              ? "תצוגה מקדימה"
+              : "צלם קבלה"
+            : mode === "pdf"
+              ? "העלה PDF"
+              : "הוספה ידנית"}
         </div>
         {mode === "receipt" ? (
           <button
@@ -120,14 +137,23 @@ function CaptureInner() {
           onDrop={onDrop}
         />
       )}
-      {mode === "manual" && <ManualMode onContinue={handleCapture} />}
+      {mode === "manual" && <ManualMode onContinue={continueToProcessing} />}
 
       {/* HIDDEN INPUTS */}
+      {/* Shutter → opens device camera (mobile native UI). Falls back to file picker on desktop. */}
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={handleImage}
+        className="hidden"
+      />
+      {/* Gallery → no `capture` attribute → opens gallery / file picker */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
         onChange={handleImage}
         className="hidden"
       />
@@ -157,26 +183,50 @@ function CaptureInner() {
 
         {/* MODE-SPECIFIC ACTION ROW */}
         {mode === "receipt" && (
-          <div className="flex justify-between items-center">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="גלריה"
-              className="w-[52px] h-[52px] rounded-[14px] bg-white/10 border border-white/15 flex items-center justify-center text-white"
-            >
-              <ImageIcon size={22} strokeWidth={2} />
-            </button>
-            <button
-              onClick={handleCapture}
-              aria-label="צלם"
-              className="w-[78px] h-[78px] rounded-full bg-white border-[5px] border-white/30 active:scale-95 transition shadow-[0_0_0_3px_rgba(56,196,242,0.5)]"
-            />
-            <button
-              aria-label="המצלמה השנייה"
-              className="w-[52px] h-[52px] rounded-[14px] bg-white/10 border border-white/15 flex items-center justify-center text-white"
-            >
-              <Repeat size={22} strokeWidth={2} />
-            </button>
-          </div>
+          previewUrl ? (
+            // Captured state: show retake + continue
+            <div className="flex justify-between items-center gap-3">
+              <button
+                onClick={retake}
+                className="flex-1 h-[52px] rounded-[14px] bg-white/10 border border-white/15 text-white text-sm font-semibold flex items-center justify-center gap-1.5"
+              >
+                <X size={18} strokeWidth={2.5} />
+                צלם שוב
+              </button>
+              <button
+                onClick={continueToProcessing}
+                className="flex-[2] h-[52px] rounded-[14px] bg-gradient-to-br from-cyan to-cyan-dark text-white text-sm font-bold flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(56,196,242,0.4)]"
+              >
+                המשך לעיבוד
+                <ArrowLeft size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+          ) : (
+            // Pre-capture: gallery / shutter / camera flip (placeholder)
+            <div className="flex justify-between items-center">
+              <button
+                onClick={triggerGallery}
+                aria-label="גלריה"
+                className="w-[52px] h-[52px] rounded-[14px] bg-white/10 border border-white/15 flex flex-col items-center justify-center text-white gap-0.5"
+              >
+                <ImageIcon size={20} strokeWidth={2} />
+                <span className="text-[8px] font-semibold opacity-80">גלריה</span>
+              </button>
+              <button
+                onClick={triggerCamera}
+                aria-label="צלם תמונה"
+                className="w-[78px] h-[78px] rounded-full bg-white border-[5px] border-white/30 active:scale-95 transition shadow-[0_0_0_3px_rgba(56,196,242,0.5)]"
+              />
+              <button
+                onClick={triggerGallery}
+                aria-label="העלה קובץ"
+                className="w-[52px] h-[52px] rounded-[14px] bg-white/10 border border-white/15 flex flex-col items-center justify-center text-white gap-0.5"
+              >
+                <Upload size={20} strokeWidth={2} />
+                <span className="text-[8px] font-semibold opacity-80">קובץ</span>
+              </button>
+            </div>
+          )
         )}
 
         {mode === "pdf" && (
@@ -190,7 +240,7 @@ function CaptureInner() {
             </button>
             <button
               disabled={!pdfFile}
-              onClick={handleCapture}
+              onClick={continueToProcessing}
               className="flex-1 bg-gradient-to-br from-navy to-navy-light text-white py-3.5 rounded-[14px] font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(30,58,138,0.25)] disabled:opacity-40 disabled:shadow-none"
             >
               עבד את ה-PDF
@@ -207,11 +257,14 @@ function CaptureInner() {
 /* CAMERA MODE                                  */
 /* ─────────────────────────────────────────── */
 function CameraMode({ previewUrl }: { previewUrl: string | null }) {
+  const captured = !!previewUrl;
   return (
     <>
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 bg-slate-900/70 backdrop-blur-md px-3.5 py-1.5 rounded-full text-[11px] font-semibold text-cyan border border-cyan/30">
-        📄 דף 1 מתוך 1 (לחץ + להוסיף)
-      </div>
+      {!captured && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 bg-slate-900/70 backdrop-blur-md px-3.5 py-1.5 rounded-full text-[11px] font-semibold text-cyan border border-cyan/30">
+          📄 צלם קבלה או בחר מהגלריה
+        </div>
+      )}
       <div className="relative w-full h-screen md:h-[calc(100vh-48px)] bg-[#1a1a1a] flex items-center justify-center overflow-hidden">
         {previewUrl ? (
           <Image src={previewUrl} alt="תצוגה מקדימה" fill style={{ objectFit: "contain" }} unoptimized />
@@ -219,21 +272,34 @@ function CameraMode({ previewUrl }: { previewUrl: string | null }) {
           <ReceiptMockup />
         )}
 
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-[360px] aspect-[3/4] pointer-events-none">
-          <div className="absolute top-0 left-0 w-8 h-8 border-[3px] border-cyan border-r-0 border-b-0 rounded-tl-lg" />
-          <div className="absolute top-0 right-0 w-8 h-8 border-[3px] border-cyan border-l-0 border-b-0 rounded-tr-lg" />
-          <div className="absolute bottom-0 left-0 w-8 h-8 border-[3px] border-cyan border-r-0 border-t-0 rounded-bl-lg" />
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-[3px] border-cyan border-l-0 border-t-0 rounded-br-lg" />
-          <div
-            className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-cyan to-transparent shadow-[0_0_12px_var(--color-cyan)]"
-            style={{ animation: "scan-progress 2.5s ease-in-out infinite alternate" }}
-          />
-        </div>
+        {!captured && (
+          <>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-[360px] aspect-[3/4] pointer-events-none">
+              <div className="absolute top-0 left-0 w-8 h-8 border-[3px] border-cyan border-r-0 border-b-0 rounded-tl-lg" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-[3px] border-cyan border-l-0 border-b-0 rounded-tr-lg" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-[3px] border-cyan border-r-0 border-t-0 rounded-bl-lg" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-[3px] border-cyan border-l-0 border-t-0 rounded-br-lg" />
+              <div
+                className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-cyan to-transparent shadow-[0_0_12px_var(--color-cyan)]"
+                style={{ animation: "scan-progress 2.5s ease-in-out infinite alternate" }}
+              />
+            </div>
 
-        <div className="absolute bottom-[200px] left-1/2 -translate-x-1/2 bg-slate-900/85 backdrop-blur-lg px-4 py-2.5 rounded-full text-xs flex items-center gap-2 border border-cyan/30 whitespace-nowrap z-[5] text-white">
-          <span className="w-2 h-2 rounded-full bg-cyan" style={{ animation: "pulse-dot 1.5s ease-in-out infinite" }} />
-          <span>החזק יציב — הקבלה מזוהה</span>
-        </div>
+            <div className="absolute bottom-[200px] left-1/2 -translate-x-1/2 bg-slate-900/85 backdrop-blur-lg px-4 py-2.5 rounded-full text-xs flex items-center gap-2 border border-cyan/30 whitespace-nowrap z-[5] text-white">
+              <span
+                className="w-2 h-2 rounded-full bg-cyan"
+                style={{ animation: "pulse-dot 1.5s ease-in-out infinite" }}
+              />
+              <span>לחץ על הכפתור הלבן כדי לצלם או על &quot;גלריה&quot;</span>
+            </div>
+          </>
+        )}
+
+        {captured && (
+          <div className="absolute bottom-[200px] left-1/2 -translate-x-1/2 bg-green/85 backdrop-blur-lg px-4 py-2.5 rounded-full text-xs flex items-center gap-2 border border-green/40 whitespace-nowrap z-[5] text-white font-semibold">
+            <span>✓ צולם בהצלחה — לחץ המשך לעיבוד</span>
+          </div>
+        )}
       </div>
     </>
   );
